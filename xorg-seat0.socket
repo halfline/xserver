@@ -1,0 +1,11 @@
+[Unit]
+Description=Xorg socket
+Before=sockets.target
+
+[Socket]
+ListenStream=%t/x11/seat0.socket
+DirectoryMode=700
+Service=xorg@seat0.service
+
+[Install]
+WantedBy=default.target

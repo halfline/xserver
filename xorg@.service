@@ -1,0 +1,5 @@
+[Unit]
+Description=Xorg service
+
+[Service]
+ExecStart=/usr/bin/Xorg -nolisten tcp -nolisten local -logverbose 7 -core -dumbSched -background none -seat %I
