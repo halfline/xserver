@@ -28,22 +28,27 @@
 #endif
 
 #include <dbus/dbus.h>
+#include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "os.h"
+#include "globals.h"
 #include "dbus-core.h"
 #include "xf86.h"
 #include "xf86platformBus.h"
 #include "xf86Xinput.h"
+#include "xf86Priv.h"
 
 #include "systemd-logind.h"
+#include <systemd/sd-login.h>
 
 #define DBUS_TIMEOUT 500 /* Wait max 0.5 seconds */
 
 struct systemd_logind_info {
     DBusConnection *conn;
+    char *session_id;
     char *session_object_path;
     Bool active;
     Bool vt_active;
@@ -51,6 +56,8 @@ struct systemd_logind_info {
 
 static struct systemd_logind_info logind_info;
 static Bool hook_added;
+
+static void systemd_logind_release_control(struct systemd_logind_info *info);
 
 static InputInfoPtr
 systemd_logind_find_info_ptr_by_devnum(InputInfoPtr start,
@@ -303,6 +310,21 @@ cleanup:
     dbus_error_free(&error);
 }
 
+static void
+detach_from_session(struct systemd_logind_info *info)
+{
+
+    if (info->session_object_path != NULL) {
+        systemd_logind_release_control(info);
+
+        free (info->session_object_path);
+        info->session_object_path = NULL;
+    }
+
+    free (info->session_id);
+    info->session_id = NULL;
+}
+
 static DBusHandlerResult
 message_filter(DBusConnection * connection, DBusMessage * message, void *data)
 {
@@ -336,6 +358,9 @@ message_filter(DBusConnection * connection, DBusMessage * message, void *data)
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
+
+    if (info->session_object_path == NULL)
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
     if (strcmp(dbus_message_get_path(message), info->session_object_path) != 0)
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -427,56 +452,197 @@ message_filter(DBusConnection * connection, DBusMessage * message, void *data)
     return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static void
-connect_hook(DBusConnection *connection, void *data)
+static int
+validate_session(struct systemd_logind_info *info, const char *session,
+                 const char *requested_type, unsigned int *vt)
 {
-    struct systemd_logind_info *info = data;
+    int ret;
+    char *state = NULL, *type = NULL, *seat = NULL;
+
+    ret = sd_session_get_state(session, &state);
+
+    if (ret < 0 || state == NULL) {
+        goto out;
+    }
+
+    if (strcmp(state, "closing") == 0) {
+        ret = -ENOENT;
+        goto out;
+    }
+
+    if (requested_type != NULL) {
+        ret = sd_session_get_type(session, &type);
+
+        if (ret < 0 || type == NULL) {
+            goto out;
+        }
+
+        if (strcmp(type, requested_type) != 0) {
+            ret = -ENOENT;
+            goto out;
+        }
+    }
+
+    ret = sd_session_get_seat(session, &seat);
+
+    if (ret < 0 || seat == NULL) {
+        goto out;
+    }
+
+    if (strcmp(seat, "seat0") != 0) {
+        ret = -ENOENT;
+        goto out;
+    }
+
+    ret = sd_session_get_vt(session, vt);
+
+    if (ret < 0 || *vt <= 0) {
+        goto out;
+    }
+
+    if (xf86Info.vtno != -1 && xf86Info.vtno != *vt) {
+        ret = -ENOENT;
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    free(state);
+    free(type);
+    free(seat);
+    return ret;
+}
+
+static char *
+find_session_id_by_type(struct systemd_logind_info *info, const char * const * sessions,
+                        const char *requested_type, unsigned int *vt)
+{
+    int ret;
+    int i;
+
+    for (i = 0; sessions[i] != NULL; i++) {
+        ret = validate_session(info, sessions[i], requested_type, vt);
+        if (ret == 0) {
+            return strdup(sessions[i]);
+        }
+    }
+
+    return NULL;
+}
+
+static char *
+get_object_path_for_session(struct systemd_logind_info *info, const char *session)
+{
     DBusError error;
     DBusMessage *msg = NULL;
     DBusMessage *reply = NULL;
-    dbus_int32_t arg;
     char *session_object_path = NULL;
 
     dbus_error_init(&error);
-
     msg = dbus_message_new_method_call("org.freedesktop.login1",
-            "/org/freedesktop/login1", "org.freedesktop.login1.Manager",
-            "GetSessionByPID");
+                                       "/org/freedesktop/login1", "org.freedesktop.login1.Manager",
+                                       "GetSession");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
         goto cleanup;
     }
 
-    arg = getpid();
-    if (!dbus_message_append_args(msg, DBUS_TYPE_UINT32, &arg,
+    if (!dbus_message_append_args(msg, DBUS_TYPE_STRING, &session,
                                   DBUS_TYPE_INVALID)) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
-        goto cleanup;
     }
 
-    reply = dbus_connection_send_with_reply_and_block(connection, msg,
+    reply = dbus_connection_send_with_reply_and_block(info->conn, msg,
                                                       DBUS_TIMEOUT, &error);
     if (!reply) {
         LogMessage(X_ERROR, "systemd-logind: failed to get session: %s\n",
                    error.message);
         goto cleanup;
     }
-    dbus_message_unref(msg);
 
     if (!dbus_message_get_args(reply, &error, DBUS_TYPE_OBJECT_PATH, &session_object_path,
                                DBUS_TYPE_INVALID)) {
-        LogMessage(X_ERROR, "systemd-logind: GetSessionByPID: %s\n",
+        LogMessage(X_ERROR, "systemd-logind: GetSession: %s\n",
                    error.message);
         goto cleanup;
     }
     session_object_path = XNFstrdup(session_object_path);
 
-    dbus_message_unref(reply);
-    reply = NULL;
+cleanup:
+    if (msg)
+        dbus_message_unref(msg);
+    if (reply)
+        dbus_message_unref(reply);
+    dbus_error_free(&error);
 
+    return session_object_path;
+}
+
+static char *
+find_session_id(struct systemd_logind_info *info, unsigned int *vt)
+{
+    char *session = NULL;
+    int ret;
+
+    if (!SocketActivated) {
+        ret = sd_pid_get_session(getpid(), &session);
+
+        if (ret == 0) {
+            ret = validate_session(info, session, NULL, vt);
+
+            if (ret == 0) {
+                goto out;
+            }
+
+            free(session);
+            session = NULL;
+        }
+    } else {
+        char **sessions = NULL;
+        int i;
+
+        ret = sd_uid_get_sessions(getuid(), FALSE, &sessions);
+
+        if (ret < 0 || sessions == NULL) {
+            goto out;
+        }
+
+        session = find_session_id_by_type(info, (const char * const *) sessions, "x11", vt);
+
+        for (i = 0; sessions[i] != NULL; i++) {
+            free(sessions[i]);
+        }
+        free(sessions);
+    }
+
+out:
+    return session;
+}
+
+static Bool
+attach_to_session(struct systemd_logind_info *info, const char *session_id, unsigned int vt)
+{
+    Bool result = FALSE;
+    char *session_object_path = NULL;
+    DBusError error;
+    DBusMessage *msg = NULL;
+    DBusMessage *reply = NULL;
+    dbus_int32_t arg;
+
+    dbus_error_init(&error);
+
+    session_object_path = get_object_path_for_session(info, session_id);
+
+    if (!session_object_path) {
+        LogMessage(X_ERROR, "systemd-logind: out of memory\n");
+        goto cleanup;
+    }
 
     msg = dbus_message_new_method_call("org.freedesktop.login1",
-            session_object_path, "org.freedesktop.login1.Session", "TakeControl");
+                                       session_object_path,
+                                       "org.freedesktop.login1.Session",
+                                       "TakeControl");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
         goto cleanup;
@@ -489,17 +655,70 @@ connect_hook(DBusConnection *connection, void *data)
         goto cleanup;
     }
 
-    reply = dbus_connection_send_with_reply_and_block(connection, msg,
+    reply = dbus_connection_send_with_reply_and_block(info->conn, msg,
                                                       DBUS_TIMEOUT, &error);
     if (!reply) {
-        LogMessage(X_ERROR, "systemd-logind: TakeControl failed: %s\n",
+        LogMessage(X_ERROR, "systemd-logind: TakeControl iailed: %s\n",
                    error.message);
         goto cleanup;
     }
 
-    dbus_bus_add_match(connection,
+    info->session_id = strdup(session_id);
+
+    if (!info->session_id) {
+        LogMessage(X_ERROR, "systemd-logind: out of memory\n");
+        goto cleanup;
+    }
+
+    LogMessage(X_INFO, "systemd-logind: took control of session %s\n",
+               session_id);
+    info->session_object_path = session_object_path;
+    xf86Info.vtno = vt;
+    info->vt_active = info->active = TRUE; /* The server owns the vt during init */
+    session_object_path = NULL;
+    session_id = NULL;
+
+    result = TRUE;
+
+cleanup:
+    free(session_object_path);
+
+    if (msg)
+        dbus_message_unref(msg);
+    if (reply)
+        dbus_message_unref(reply);
+    dbus_error_free(&error);
+
+    return result;
+}
+
+static void
+connect_hook(DBusConnection *connection, void *data)
+{
+    struct systemd_logind_info *info = data;
+    char *session_id = NULL;
+    unsigned int vt = 0;
+    DBusError error;
+
+    dbus_error_init(&error);
+
+    info->conn = connection;
+
+    session_id = find_session_id(info, &vt);
+
+    if (!session_id) {
+        LogMessage(X_ERROR, "systemd-logind: couldn't find session to take control of\n");
+        goto cleanup;
+    }
+
+    if (!attach_to_session(info, session_id, vt)) {
+        goto cleanup;
+    }
+
+    dbus_bus_add_match(info->conn,
         "type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameOwnerChanged',path='/org/freedesktop/DBus'",
         &error);
+
     if (dbus_error_is_set(&error)) {
         LogMessage(X_ERROR, "systemd-logind: could not add match: %s\n",
                    error.message);
@@ -512,19 +731,8 @@ connect_hook(DBusConnection *connection, void *data)
         goto cleanup;
     }
 
-    LogMessage(X_INFO, "systemd-logind: took control of session %s\n",
-               session_object_path);
-    info->conn = connection;
-    info->session_object_path = session_object_path;
-    info->vt_active = info->active = TRUE; /* The server owns the vt during init */
-    session_object_path = NULL;
-
 cleanup:
-    free(session_object_path);
-    if (msg)
-        dbus_message_unref(msg);
-    if (reply)
-        dbus_message_unref(reply);
+    free(session_id);
     dbus_error_free(&error);
 }
 
@@ -565,8 +773,7 @@ disconnect_hook(void *data)
 {
     struct systemd_logind_info *info = data;
 
-    free(info->session_object_path);
-    info->session_object_path = NULL;
+    detach_from_session(info);
     info->conn = NULL;
 }
 
