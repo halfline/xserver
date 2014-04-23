@@ -50,6 +50,7 @@ struct systemd_logind_info {
     DBusConnection *conn;
     char *session_id;
     char *session_object_path;
+    sd_login_monitor *login_monitor;
     Bool active;
     Bool vt_active;
 };
@@ -693,12 +694,66 @@ cleanup:
 }
 
 static void
+wakeup_handler(void *data, int result, void *read_mask)
+{
+    struct systemd_logind_info *info = data;
+    int fd;
+
+    if (result <= 0)
+        return;
+
+    fd = sd_login_monitor_get_fd(info->login_monitor);
+    if (FD_ISSET(fd, (fd_set *) read_mask)) {
+        char *state = NULL;
+        int ret;
+
+        sd_login_monitor_flush (info->login_monitor);
+
+        if (info->session_id != NULL) {
+            ret = sd_session_get_state(info->session_id, &state);
+
+            if (ret < 0 || state == NULL ||
+                (strcmp(state, "closing") == 0) ||
+                (strcmp(state, "offline") == 0)) {
+                LogMessage(X_INFO, "systemd-logind: attached session closing, killing all clients and waiting for new session\n");
+                systemd_logind_release_control(info);
+                detach_from_session(info);
+
+                Deactivate();
+            }
+        } else {
+            unsigned int vt = 0;
+            char *session_id;
+
+            session_id = find_session_id(info, &vt);
+
+            if (session_id) {
+                LogMessage(X_INFO, "systemd-logind: new session %s available, attaching and regenerating\n", session_id);
+                if (attach_to_session(info, session_id, vt)) {
+                    Reactivate();
+                } else {
+                    LogMessage(X_WARNING, "systemd-logind: could not attach to new session\n");
+                    free(session_id);
+                }
+            }
+        }
+    }
+}
+
+static void
+block_handler(void *data, struct timeval **tv, void *read_mask)
+{
+}
+
+static void
 connect_hook(DBusConnection *connection, void *data)
 {
     struct systemd_logind_info *info = data;
     char *session_id = NULL;
     unsigned int vt = 0;
+    sd_login_monitor *login_monitor = NULL;
     DBusError error;
+    int ret;
 
     dbus_error_init(&error);
 
@@ -731,8 +786,27 @@ connect_hook(DBusConnection *connection, void *data)
         goto cleanup;
     }
 
+    if (SocketActivated) {
+        ret = sd_login_monitor_new(NULL, &login_monitor);
+
+        if (ret < 0) {
+            LogMessage(X_ERROR, "systemd-logind: could not add monitor: %s\n",
+                       strerror(-ret));
+            goto cleanup;
+        }
+        AddGeneralSocket(sd_login_monitor_get_fd(login_monitor));
+        RegisterBlockAndWakeupHandlers(block_handler, wakeup_handler, info);
+
+        info->login_monitor = login_monitor;
+
+        login_monitor = NULL;
+    }
+
 cleanup:
     free(session_id);
+
+    if (login_monitor)
+        sd_login_monitor_unref(login_monitor);
     dbus_error_free(&error);
 }
 
@@ -774,6 +848,15 @@ disconnect_hook(void *data)
     struct systemd_logind_info *info = data;
 
     detach_from_session(info);
+
+    if (info->login_monitor) {
+        RemoveBlockAndWakeupHandlers(block_handler, wakeup_handler, info);
+        RemoveGeneralSocket(sd_login_monitor_get_fd(info->login_monitor));
+
+        sd_login_monitor_unref(info->login_monitor);
+        info->login_monitor = NULL;
+    }
+
     info->conn = NULL;
 }
 
@@ -786,8 +869,17 @@ static struct dbus_core_hook core_hook = {
 int
 systemd_logind_init(void)
 {
-    if (!hook_added)
+    struct systemd_logind_info *info = &logind_info;
+
+    if (!hook_added) {
         hook_added = dbus_core_add_hook(&core_hook);
+    } else {
+        if (info->login_monitor) {
+            /* On server reset, wakeup handlers are cleared, so reregister ours now */
+            RemoveBlockAndWakeupHandlers(block_handler, wakeup_handler, &logind_info);
+            RegisterBlockAndWakeupHandlers(block_handler, wakeup_handler, &logind_info);
+        }
+    }
 
     return hook_added;
 }
