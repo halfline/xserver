@@ -44,7 +44,7 @@
 
 struct systemd_logind_info {
     DBusConnection *conn;
-    char *session;
+    char *session_object_path;
     Bool active;
     Bool vt_active;
 };
@@ -96,7 +96,7 @@ systemd_logind_take_fd(int _major, int _minor, const char *path,
     dbus_bool_t paused;
     int fd = -1;
 
-    if (!info->session || major == 0)
+    if (!info->session_object_path || major == 0)
         return -1;
 
     /* logind does not support mouse devs (with evdev we don't need them) */
@@ -115,7 +115,7 @@ systemd_logind_take_fd(int _major, int _minor, const char *path,
 
     dbus_error_init(&error);
 
-    msg = dbus_message_new_method_call("org.freedesktop.login1", info->session,
+    msg = dbus_message_new_method_call("org.freedesktop.login1", info->session_object_path,
             "org.freedesktop.login1.Session", "TakeDevice");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
@@ -173,7 +173,7 @@ systemd_logind_release_fd(int _major, int _minor, int fd)
     dbus_int32_t minor = _minor;
     int matches = 0;
 
-    if (!info->session || major == 0)
+    if (!info->session_object_path || major == 0)
         goto close;
 
     /* Only release the fd if there is only 1 InputInfo left for this major
@@ -192,7 +192,7 @@ systemd_logind_release_fd(int _major, int _minor, int fd)
 
     dbus_error_init(&error);
 
-    msg = dbus_message_new_method_call("org.freedesktop.login1", info->session,
+    msg = dbus_message_new_method_call("org.freedesktop.login1", info->session_object_path,
             "org.freedesktop.login1.Session", "ReleaseDevice");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
@@ -226,7 +226,7 @@ close:
 int
 systemd_logind_controls_session(void)
 {
-    return logind_info.session ? 1 : 0;
+    return logind_info.session_object_path ? 1 : 0;
 }
 
 void
@@ -236,7 +236,7 @@ systemd_logind_vtenter(void)
     InputInfoPtr pInfo;
     int i;
 
-    if (!info->session)
+    if (!info->session_object_path)
         return; /* Not using systemd-logind */
 
     if (!info->active)
@@ -274,7 +274,7 @@ systemd_logind_ack_pause(struct systemd_logind_info *info,
 
     dbus_error_init(&error);
 
-    msg = dbus_message_new_method_call("org.freedesktop.login1", info->session,
+    msg = dbus_message_new_method_call("org.freedesktop.login1", info->session_object_path,
             "org.freedesktop.login1.Session", "PauseDeviceComplete");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
@@ -336,7 +336,7 @@ message_filter(DBusConnection * connection, DBusMessage * message, void *data)
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
 
-    if (strcmp(dbus_message_get_path(message), info->session) != 0)
+    if (strcmp(dbus_message_get_path(message), info->session_object_path) != 0)
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
     if (dbus_message_is_signal(message, "org.freedesktop.login1.Session",
@@ -434,7 +434,7 @@ connect_hook(DBusConnection *connection, void *data)
     DBusMessage *msg = NULL;
     DBusMessage *reply = NULL;
     dbus_int32_t arg;
-    char *session = NULL;
+    char *session_object_path = NULL;
 
     dbus_error_init(&error);
 
@@ -462,20 +462,20 @@ connect_hook(DBusConnection *connection, void *data)
     }
     dbus_message_unref(msg);
 
-    if (!dbus_message_get_args(reply, &error, DBUS_TYPE_OBJECT_PATH, &session,
+    if (!dbus_message_get_args(reply, &error, DBUS_TYPE_OBJECT_PATH, &session_object_path,
                                DBUS_TYPE_INVALID)) {
         LogMessage(X_ERROR, "systemd-logind: GetSessionByPID: %s\n",
                    error.message);
         goto cleanup;
     }
-    session = XNFstrdup(session);
+    session_object_path = XNFstrdup(session_object_path);
 
     dbus_message_unref(reply);
     reply = NULL;
 
 
     msg = dbus_message_new_method_call("org.freedesktop.login1",
-            session, "org.freedesktop.login1.Session", "TakeControl");
+            session_object_path, "org.freedesktop.login1.Session", "TakeControl");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
         goto cleanup;
@@ -512,14 +512,14 @@ connect_hook(DBusConnection *connection, void *data)
     }
 
     LogMessage(X_INFO, "systemd-logind: took control of session %s\n",
-               session);
+               session_object_path);
     info->conn = connection;
-    info->session = session;
+    info->session_object_path = session_object_path;
     info->vt_active = info->active = TRUE; /* The server owns the vt during init */
-    session = NULL;
+    session_object_path = NULL;
 
 cleanup:
-    free(session);
+    free(session_object_path);
     if (msg)
         dbus_message_unref(msg);
     if (reply)
@@ -537,7 +537,7 @@ systemd_logind_release_control(struct systemd_logind_info *info)
     dbus_error_init(&error);
 
     msg = dbus_message_new_method_call("org.freedesktop.login1",
-            info->session, "org.freedesktop.login1.Session", "ReleaseControl");
+            info->session_object_path, "org.freedesktop.login1.Session", "ReleaseControl");
     if (!msg) {
         LogMessage(X_ERROR, "systemd-logind: out of memory\n");
         goto cleanup;
@@ -564,8 +564,8 @@ disconnect_hook(void *data)
 {
     struct systemd_logind_info *info = data;
 
-    free(info->session);
-    info->session = NULL;
+    free(info->session_object_path);
+    info->session_object_path = NULL;
     info->conn = NULL;
 }
 
@@ -584,7 +584,7 @@ systemd_logind_init(void)
 void
 systemd_logind_fini(void)
 {
-    if (logind_info.session)
+    if (logind_info.session_object_path)
         systemd_logind_release_control(&logind_info);
 
     dbus_core_remove_hook(&core_hook);
