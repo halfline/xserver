@@ -505,23 +505,6 @@ connect_hook(DBusConnection *connection, void *data)
         goto cleanup;
     }
 
-    /*
-     * HdG: This is not useful with systemd <= 208 since the signal only
-     * contains invalidated property names there, rather than property, val
-     * pairs as it should.  Instead we just use the first resume / pause now.
-     */
-#if 0
-    snprintf(match, sizeof(match),
-        "type='signal',sender='org.freedesktop.login1',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='%s'",
-        session);
-    dbus_bus_add_match(connection, match, &error);
-    if (dbus_error_is_set(&error)) {
-        LogMessage(X_ERROR, "systemd-logind: could not add match: %s\n",
-                   error.message);
-        goto cleanup;
-    }
-#endif
-
     if (!dbus_connection_add_filter(connection, message_filter, info, NULL)) {
         LogMessage(X_ERROR, "systemd-logind: could not add filter: %s\n",
                    error.message);
