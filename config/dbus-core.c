@@ -138,38 +138,41 @@ connect_to_bus(void)
     DBusError error;
     struct dbus_core_hook *hook;
 
-    dbus_error_init(&error);
-    bus_info.connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
-    if (!bus_info.connection || dbus_error_is_set(&error)) {
-        LogMessage(X_ERROR, "dbus-core: error connecting to system bus: %s (%s)\n",
-               error.name, error.message);
-        goto err_begin;
+    if (!bus_info.connection) {
+        dbus_error_init(&error);
+        bus_info.connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
+        if (!bus_info.connection || dbus_error_is_set(&error)) {
+            LogMessage(X_ERROR, "dbus-core: error connecting to system bus: %s (%s)\n",
+                   error.name, error.message);
+            goto err_begin;
+        }
+
+        /* Thankyou.  Really, thankyou. */
+        dbus_connection_set_exit_on_disconnect(bus_info.connection, FALSE);
+
+        if (!dbus_connection_get_unix_fd(bus_info.connection, &bus_info.fd)) {
+            ErrorF("[dbus-core] couldn't get fd for system bus\n");
+            goto err_unref;
+        }
+
+        if (!dbus_connection_add_filter(bus_info.connection, message_filter,
+                                        &bus_info, NULL)) {
+            ErrorF("[dbus-core] couldn't add filter: %s (%s)\n", error.name,
+                   error.message);
+            goto err_fd;
+        }
+
+        dbus_error_free(&error);
+        AddGeneralSocket(bus_info.fd);
+
+        for (hook = bus_info.hooks; hook; hook = hook->next) {
+            if (hook->connect)
+                hook->connect(bus_info.connection, hook->data);
+        }
     }
 
-    /* Thankyou.  Really, thankyou. */
-    dbus_connection_set_exit_on_disconnect(bus_info.connection, FALSE);
-
-    if (!dbus_connection_get_unix_fd(bus_info.connection, &bus_info.fd)) {
-        ErrorF("[dbus-core] couldn't get fd for system bus\n");
-        goto err_unref;
-    }
-
-    if (!dbus_connection_add_filter(bus_info.connection, message_filter,
-                                    &bus_info, NULL)) {
-        ErrorF("[dbus-core] couldn't add filter: %s (%s)\n", error.name,
-               error.message);
-        goto err_fd;
-    }
-
-    dbus_error_free(&error);
-    AddGeneralSocket(bus_info.fd);
-
+    RemoveBlockAndWakeupHandlers(block_handler, wakeup_handler, &bus_info);
     RegisterBlockAndWakeupHandlers(block_handler, wakeup_handler, &bus_info);
-
-    for (hook = bus_info.hooks; hook; hook = hook->next) {
-        if (hook->connect)
-            hook->connect(bus_info.connection, hook->data);
-    }
 
     return 1;
 
@@ -230,9 +233,6 @@ dbus_core_remove_hook(struct dbus_core_hook *hook)
 int
 dbus_core_init(void)
 {
-    memset(&bus_info, 0, sizeof(bus_info));
-    bus_info.fd = -1;
-    bus_info.hooks = NULL;
     if (!connect_to_bus())
         bus_info.timer = TimerSet(NULL, 0, 1, reconnect_timer, NULL);
 
