@@ -50,6 +50,7 @@ struct systemd_logind_info {
 };
 
 static struct systemd_logind_info logind_info;
+static Bool hook_added;
 
 static InputInfoPtr
 systemd_logind_find_info_ptr_by_devnum(InputInfoPtr start,
@@ -578,7 +579,10 @@ static struct dbus_core_hook core_hook = {
 int
 systemd_logind_init(void)
 {
-    return dbus_core_add_hook(&core_hook);
+    if (!hook_added)
+        hook_added = dbus_core_add_hook(&core_hook);
+
+    return hook_added;
 }
 
 void
@@ -588,4 +592,5 @@ systemd_logind_fini(void)
         systemd_logind_release_control(&logind_info);
 
     dbus_core_remove_hook(&core_hook);
+    hook_added = FALSE;
 }
