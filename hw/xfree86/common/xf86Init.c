@@ -778,6 +778,9 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
         }
     }
     else {
+        dbus_core_init();
+        systemd_logind_init();
+
         /*
          * serverGeneration != 1; some OSs have to do things here, too.
          */
