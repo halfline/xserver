@@ -555,8 +555,10 @@ xf86VTEnter(void)
     IHPtr ih;
 
     DebugF("xf86VTSwitch: Entering\n");
-    if (!xf86VTSwitchTo())
-        return;
+    if (!systemd_logind_controls_session()) {
+        if (!xf86VTSwitchTo())
+            return;
+    }
 
 #ifdef XF86PM
     xf86OSPMClose = xf86OSPMOpen();

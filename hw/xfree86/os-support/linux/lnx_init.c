@@ -150,7 +150,7 @@ xf86OpenConsole(void)
             KeepTty = TRUE;
         }
 
-        if (!KeepTty) {
+        if (!KeepTty && !systemd_logind_controls_session()) {
             pid_t ppid = getppid();
             pid_t ppgid;
 
@@ -183,16 +183,18 @@ xf86OpenConsole(void)
             FatalError("xf86OpenConsole: Cannot open virtual console"
                        " %d (%s)\n", xf86Info.vtno, strerror(errno));
 
-        /*
-         * Linux doesn't switch to an active vt after the last close of a vt,
-         * so we do this ourselves by remembering which is active now.
-         */
-        SYSCALL(ret = ioctl(xf86Info.consoleFd, VT_GETSTATE, &vts));
-        if (ret < 0)
-            xf86Msg(X_WARNING, "xf86OpenConsole: VT_GETSTATE failed: %s\n",
-                    strerror(errno));
-        else
-            activeVT = vts.v_active;
+        if (!systemd_logind_controls_session()) {
+            /*
+             * Linux doesn't switch to an active vt after the last close of a vt,
+             * so we do this ourselves by remembering which is active now.
+             */
+            SYSCALL(ret = ioctl(xf86Info.consoleFd, VT_GETSTATE, &vts));
+            if (ret < 0)
+                xf86Msg(X_WARNING, "xf86OpenConsole: VT_GETSTATE failed: %s\n",
+                        strerror(errno));
+            else
+                activeVT = vts.v_active;
+        }
 
 #if 0
         if (!KeepTty) {
@@ -206,7 +208,7 @@ xf86OpenConsole(void)
         }
 #endif
 
-        if (!xf86Info.ShareVTs) {
+        if (!xf86Info.ShareVTs && !systemd_logind_controls_session()) {
             struct termios nTty;
 
             /*
@@ -271,7 +273,7 @@ xf86OpenConsole(void)
         }
     }
     else {                      /* serverGeneration != 1 */
-        if (!xf86Info.ShareVTs && xf86Info.autoVTSwitch) {
+        if (!xf86Info.ShareVTs && !systemd_logind_controls_session() && xf86Info.autoVTSwitch) {
             /* now get the VT */
             switch_to(xf86Info.vtno, "xf86OpenConsole");
         }
@@ -291,7 +293,7 @@ xf86CloseConsole(void)
     SYSCALL(ioctl(xf86Info.consoleFd, TIOCNOTTY, 0));
     OsSignal(SIGHUP, handler);
 
-    if (xf86Info.ShareVTs) {
+    if (xf86Info.ShareVTs || systemd_logind_controls_session()) {
         close(xf86Info.consoleFd);
         xf86Info.consoleFd = -1;
         return;
