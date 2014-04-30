@@ -279,8 +279,13 @@ xf86OpenConsole(void)
 void
 xf86CloseConsole(void)
 {
+    OsSigHandlerPtr handler;
     struct vt_mode VT;
     int ret;
+
+    handler = OsSignal(SIGHUP, SIG_IGN);
+    SYSCALL(ioctl(xf86Info.consoleFd, TIOCNOTTY, 0));
+    OsSignal(SIGHUP, handler);
 
     if (xf86Info.ShareVTs) {
         close(xf86Info.consoleFd);
