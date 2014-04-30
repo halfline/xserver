@@ -143,6 +143,7 @@ dix_main(int argc, char *argv[], char *envp[])
 
     InitConnectionLimits();
 
+    ProcessEnvironment();
     ProcessCommandLine(argc, argv);
 
     alwaysCheckForInput[0] = 0;

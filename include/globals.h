@@ -26,6 +26,7 @@ extern _X_EXPORT int GrabInProgress;
 extern _X_EXPORT Bool noTestExtensions;
 extern _X_EXPORT char *SeatId;
 extern _X_EXPORT char *ConnectionInfo;
+extern _X_EXPORT Bool SocketActivated;
 extern _X_EXPORT sig_atomic_t inSignalContext;
 
 #ifdef DPMSExtension

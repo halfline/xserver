@@ -1066,6 +1066,27 @@ ProcessCommandLine(int argc, char *argv[])
     }
 }
 
+/*
+ * This function parses the environment and modfies global state
+ * based on the environment, if necessary
+ */
+void
+ProcessEnvironment(void)
+{
+    const char *pid_string;
+
+    pid_string = getenv("LISTEN_PID");
+
+    if (pid_string != NULL) {
+        pid_t pid;
+
+        pid = atol(pid_string);
+
+        if (pid > 0 && pid == getpid())
+            SocketActivated = TRUE;
+    }
+}
+
 /* Implement a simple-minded font authorization scheme.  The authorization
    name is "hp-hostname-1", the contents are simply the host name. */
 int

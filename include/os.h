@@ -209,10 +209,11 @@ extern _X_EXPORT void UseMsg(void);
 
 extern _X_EXPORT void ProcessCommandLine(int /*argc */ , char * /*argv */ []);
 
+extern _X_EXPORT void ProcessEnvironment(void);
+
 extern _X_EXPORT int set_font_authorizations(char **authorizations,
                                              int *authlen,
                                              void *client);
-
 /*
  * This function malloc(3)s buffer, terminating the server if there is not
  * enough memory.

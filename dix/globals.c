@@ -131,4 +131,6 @@ int displayfd = -1;
 Bool explicit_display = FALSE;
 char *ConnectionInfo;
 
+Bool SocketActivated = FALSE;
+
 CARD32 TimeOutValue = DEFAULT_TIMEOUT * MILLI_PER_SECOND;
