@@ -90,7 +90,7 @@ xf86OpenConsole(void)
     const char *tty0[] = { "/dev/tty0", "/dev/vc/0", NULL };
     const char *vcs[] = { "/dev/vc/%d", "/dev/tty%d", NULL };
 
-    if (serverGeneration == 1) {
+    if (xf86Info.consoleFd == -1) {
         /*
          * setup the virtual terminal manager
          */
@@ -289,6 +289,7 @@ xf86CloseConsole(void)
 
     if (xf86Info.ShareVTs) {
         close(xf86Info.consoleFd);
+        xf86Info.consoleFd = -1;
         return;
     }
 
@@ -331,6 +332,7 @@ xf86CloseConsole(void)
         }
     }
     close(xf86Info.consoleFd);  /* make the vt-manager happy */
+    xf86Info.consoleFd = -1;
 }
 
 int
