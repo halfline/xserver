@@ -176,6 +176,8 @@ CallbackListPtr ClientStateCallback;
 volatile char dispatchException = 0;
 volatile char isItTimeToYield;
 
+int dispatchMode = DM_ACTIVATING;
+
 #define SAME_SCREENS(a, b) (\
     (a.pScreen == b.pScreen))
 
@@ -354,7 +356,8 @@ Dispatch(void)
     SmartScheduleSlice = SmartScheduleInterval;
     while (!dispatchException) {
         if (*icheck[0] != *icheck[1]) {
-            ProcessInputEvents();
+            if (dispatchMode == DM_ACTIVE)
+                ProcessInputEvents();
             FlushIfCriticalOutputPending();
         }
 
@@ -369,7 +372,7 @@ Dispatch(void)
 	*  each round
 	*****************/
 
-        while (!dispatchException && (--nready >= 0)) {
+        while (!dispatchException && dispatchMode == DM_ACTIVE && (--nready >= 0)) {
             client = clients[clientReady[nready]];
             if (!client) {
                 /* KillClient can cause this to happen */

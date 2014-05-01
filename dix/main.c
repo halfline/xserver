@@ -201,8 +201,10 @@ dix_main(int argc, char *argv[], char *envp[])
         InitCallbackManager();
         InitOutput(&screenInfo, argc, argv);
 
-        if (screenInfo.numScreens < 1)
-            FatalError("no screens found");
+        if (dispatchMode == DM_ACTIVATING || dispatchMode == DM_ACTIVE) {
+            if (screenInfo.numScreens < 1)
+                FatalError("no screens found");
+        }
         InitExtensions(argc, argv);
 
         for (i = 0; i < screenInfo.numGPUScreens; i++) {
@@ -293,7 +295,19 @@ dix_main(int argc, char *argv[], char *envp[])
         pthread_mutex_unlock(&serverRunningMutex);
 #endif
 
-        NotifyParentProcess();
+        switch (dispatchMode) {
+            case DM_ACTIVATING:
+                dispatchMode = DM_ACTIVE;
+                break;
+            case DM_DEACTIVATING:
+                dispatchMode = DM_INACTIVE;
+                break;
+            default:
+                break;
+        }
+
+        if (dispatchMode == DM_ACTIVE)
+            NotifyParentProcess();
 
         Dispatch();
 

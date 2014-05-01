@@ -427,6 +427,23 @@ GiveUp(int sig)
     errno = olderrno;
 }
 
+
+/* Force connections to close, and then sit deactivated until reset or terminated */
+
+void
+Deactivate(void)
+{
+    dispatchMode = DM_DEACTIVATING;
+    AutoResetServer(0);
+}
+
+void
+Reactivate(void)
+{
+    dispatchMode = DM_ACTIVATING;
+    AutoResetServer(0);
+}
+
 #if (defined WIN32 && defined __MINGW32__) || defined(__CYGWIN__)
 CARD32
 GetTimeInMillis(void)

@@ -833,7 +833,8 @@ static void
 ActivateVT(Bool *sigio_blocked)
 {
     /* All screens are in the same state, so just check the first */
-    if (xf86VTOwner())
+
+    if (xf86VTOwner() || dispatchMode == DM_DEACTIVATING)
         return;
 
 #ifdef HAS_USL_VTS
