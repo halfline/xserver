@@ -413,13 +413,13 @@ CreateWellKnownSockets(void)
     if (NoListenAll) {
         ListenTransCount = 0;
     }
-    else if ((displayfd < 0) || explicit_display) {
+    else if (((displayfd < 0) && !SocketActivated) || explicit_display) {
         if (TryCreateSocket(atoi(display), &partial) &&
             ListenTransCount >= 1)
             if (!PartialNetwork && partial)
                 FatalError ("Failed to establish all listening sockets");
     }
-    else { /* -displayfd and no explicit display number */
+    else { /* -displayfd and no explicit display number or socket activated */
         Bool found = 0;
         for (i = 0; i < 65536 - X_TCP_PORT; i++) {
             if (TryCreateSocket(i, &partial) && !partial) {

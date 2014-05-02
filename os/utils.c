@@ -1085,6 +1085,9 @@ ProcessEnvironment(void)
         if (pid > 0 && pid == getpid()) {
             SocketActivated = TRUE;
             dispatchExceptionAtReset = 0;
+#ifdef LOCK_SERVER
+            nolock = TRUE;
+#endif
         }
     }
 }
