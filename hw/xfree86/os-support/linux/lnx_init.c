@@ -35,6 +35,7 @@
 #include "xf86.h"
 #include "xf86Priv.h"
 #include "xf86_OSlib.h"
+#include "systemd-logind.h"
 
 #include <sys/stat.h>
 
@@ -95,7 +96,10 @@ xf86OpenConsole(void)
          * setup the virtual terminal manager
          */
         if (xf86Info.vtno != -1) {
-            from = X_CMDLINE;
+            if (!systemd_logind_controls_session())
+                from = X_CMDLINE;
+            else
+                from = X_PROBED;
         }
         else {
 
