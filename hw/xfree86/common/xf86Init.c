@@ -386,7 +386,7 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
     Bool pix24Fail = FALSE;
     Bool autoconfig = FALSE;
     Bool sigio_blocked = FALSE;
-    Bool want_hw_access = FALSE;
+    Bool want_hw_access = xorgHWAccess;
     GDevPtr configured_device;
 
     xf86Initialising = TRUE;
@@ -439,10 +439,12 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
 
         if (xf86DoShowOptions)
             DoShowOptions();
+    }
 
-        dbus_core_init();
-        systemd_logind_init();
+    dbus_core_init();
+    systemd_logind_init();
 
+    if (serverGeneration == 1) {
         /* Do a general bus probe.  This will be a PCI probe for x86 platforms */
         xf86BusProbe();
 
@@ -455,11 +457,22 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
                 return;
             }
         }
+    }
 
 #ifdef XF86PM
-        xf86OSPMClose = xf86OSPMOpen();
+    /*
+       should we reopen it here? We need to deal with an already opened
+       device. We could leave this to the OS layer. For now we simply
+       close it here
+     */
+    if (xf86OSPMClose)
+        xf86OSPMClose();
+
+    if ((xf86OSPMClose = xf86OSPMOpen()) != NULL)
+        xf86MsgVerb(X_INFO, 3, "APM registered successfully\n");
 #endif
 
+    if (serverGeneration == 1) {
         xf86ExtensionInit();
 
         /* Load all modules specified explicitly in the config file */
@@ -535,19 +548,21 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
             if (!(flags & HW_SKIP_CONSOLE) && !ServerIsNotSeat0())
                 xorgHWOpenConsole = TRUE;
         }
+    }
 
-        if (xorgHWOpenConsole)
-            xf86OpenConsole();
-        else
-            xf86Info.dontVTSwitch = TRUE;
+    if (xorgHWOpenConsole)
+        xf86OpenConsole();
+    else
+        xf86Info.dontVTSwitch = TRUE;
 
-	/* Enable full I/O access */
-	if (want_hw_access)
-	    xorgHWAccess = xf86EnableIO();
+    /* Enable full I/O access */
+    if (want_hw_access)
+        xorgHWAccess = xf86EnableIO();
 
-        if (xf86BusConfig() == FALSE)
-            return;
+    if (xf86BusConfig() == FALSE)
+        return;
 
+    if (serverGeneration == 1) {
         xf86PostProbe();
 
         /*
@@ -776,32 +791,6 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
                 break;
             }
         }
-    }
-    else {
-        dbus_core_init();
-        systemd_logind_init();
-
-        /*
-         * serverGeneration != 1; some OSs have to do things here, too.
-         */
-        if (xorgHWOpenConsole)
-            xf86OpenConsole();
-
-#ifdef XF86PM
-        /*
-           should we reopen it here? We need to deal with an already opened
-           device. We could leave this to the OS layer. For now we simply
-           close it here
-         */
-        if (xf86OSPMClose)
-            xf86OSPMClose();
-        if ((xf86OSPMClose = xf86OSPMOpen()) != NULL)
-            xf86MsgVerb(X_INFO, 3, "APM registered successfully\n");
-#endif
-
-        /* Make sure full I/O access is enabled */
-        if (xorgHWAccess)
-            xf86EnableIO();
     }
 
     /*
