@@ -1082,8 +1082,10 @@ ProcessEnvironment(void)
 
         pid = atol(pid_string);
 
-        if (pid > 0 && pid == getpid())
+        if (pid > 0 && pid == getpid()) {
             SocketActivated = TRUE;
+            dispatchExceptionAtReset = 0;
+        }
     }
 }
 
