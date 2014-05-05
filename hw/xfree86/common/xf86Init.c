@@ -1004,7 +1004,7 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
 
     InitSystemdSupport();
 
-    if (serverGeneration == 1) {
+    if (dispatchMode == DM_ACTIVATING) {
         DetectConfiguration(autoconfig);
     }
 
