@@ -557,6 +557,13 @@ OpenConsole(void)
 }
 
 static void
+CloseConsole(void)
+{
+    if (xorgHWOpenConsole)
+        xf86CloseConsole();
+}
+
+static void
 SortScreensByNumber(void)
 {
     int i, j;
@@ -1017,8 +1024,12 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
             xf86Msg(X_ERROR, "No drivers available.\n");
             return;
         }
+    }
 
+    if (dispatchMode == DM_ACTIVATING) {
         OpenConsole();
+    } else if (dispatchMode == DM_DEACTIVATING) {
+        CloseConsole();
     }
 
     /* Enable full I/O access */
