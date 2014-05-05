@@ -293,6 +293,8 @@ xf86CloseConsole(void)
     SYSCALL(ioctl(xf86Info.consoleFd, TIOCNOTTY, 0));
     OsSignal(SIGHUP, handler);
 
+    xf86Info.vtno = -1;
+
     if (xf86Info.ShareVTs || systemd_logind_controls_session()) {
         close(xf86Info.consoleFd);
         xf86Info.consoleFd = -1;
