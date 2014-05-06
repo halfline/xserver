@@ -1079,17 +1079,20 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
 
     AllocatePrivateData();
 
-    RegisterGPUScreens(argc,argv);
-    RegisterScreens(argc, argv);
+    /* FIXME: why only skip this? Is the other code needed? */
+    if (dispatchMode != DM_DEACTIVATING) {
+        RegisterGPUScreens(argc,argv);
+        RegisterScreens(argc, argv);
 
-    AttachGPUScreensToFirstScreen();
+        AttachGPUScreensToFirstScreen();
 
-    xf86VGAarbiterWrapFunctions();
+        xf86VGAarbiterWrapFunctions();
 
-    if (sigio_blocked)
-        OsReleaseSIGIO();
+        if (sigio_blocked)
+            OsReleaseSIGIO();
 
-    xf86InitOrigins();
+        xf86InitOrigins();
+    }
 
     xf86Resetting = FALSE;
     xf86Initialising = FALSE;
