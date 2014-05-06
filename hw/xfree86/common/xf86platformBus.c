@@ -560,22 +560,22 @@ xf86platformRemoveDevice(int index)
         if (found)
             break;
     }
-    if (!found) {
-        ErrorF("failed to find screen to remove\n");
-        goto out;
+
+    if (found) {
+        xf86GPUScreens[i]->pScreen->CloseScreen(xf86GPUScreens[i]->pScreen);
+
+        RemoveGPUScreen(xf86GPUScreens[i]->pScreen);
+        xf86DeleteScreen(xf86GPUScreens[i]);
     }
-
-    xf86GPUScreens[i]->pScreen->CloseScreen(xf86GPUScreens[i]->pScreen);
-
-    RemoveGPUScreen(xf86GPUScreens[i]->pScreen);
-    xf86DeleteScreen(xf86GPUScreens[i]);
 
     xf86UnclaimPlatformSlot(&xf86_platform_devices[index], NULL);
 
     xf86_remove_platform_device(index);
 
-    RRResourcesChanged(xf86Screens[0]->pScreen);
-    RRTellChanged(xf86Screens[0]->pScreen);
+    if (found) {
+        RRResourcesChanged(xf86Screens[0]->pScreen);
+        RRTellChanged(xf86Screens[0]->pScreen);
+    }
  out:
     return;
 }
