@@ -180,6 +180,18 @@ out_free:
     config_odev_free_attributes(attribs);
 }
 
+void xf86PlatformRemoveAllDevices(void)
+{
+    int index;
+
+    for (index = xf86_num_platform_devices - 1; index >= 0; index--) {
+        if (xf86_get_platform_device_unowned(index) == TRUE)
+                xf86_remove_platform_device(index);
+        else
+                xf86platformRemoveDevice(index);
+    }
+}
+
 void NewGPUDeviceRequest(struct OdevAttributes *attribs)
 {
     int old_num = xf86_num_platform_devices;

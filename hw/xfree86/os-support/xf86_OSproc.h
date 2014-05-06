@@ -198,6 +198,9 @@ xf86PlatformDeviceProbe(struct OdevAttributes *attribs);
 
 void
 xf86PlatformReprobeDevice(int index, struct OdevAttributes *attribs);
+
+void
+xf86PlatformRemoveAllDevices(void);
 #endif
 
 _XFUNCPROTOEND

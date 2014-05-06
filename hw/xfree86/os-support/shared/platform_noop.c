@@ -20,4 +20,8 @@ void xf86PlatformDeviceProbe(struct OdevAttributes *attribs)
 {
 
 }
+
+void xf86PlatformRemoveAllDevices(void);
+{
+}
 #endif

@@ -1013,6 +1013,8 @@ InitOutput(ScreenInfo * pScreenInfo, int argc, char **argv)
 
     if (dispatchMode == DM_ACTIVATING) {
         DetectConfiguration(autoconfig);
+    } else if (dispatchMode == DM_DEACTIVATING) {
+        xf86PlatformRemoveAllDevices();
     }
 
     InitPowerManagementSupport();
