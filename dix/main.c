@@ -205,96 +205,96 @@ dix_main(int argc, char *argv[], char *envp[])
         if (dispatchMode == DM_ACTIVATING || dispatchMode == DM_ACTIVE) {
             if (screenInfo.numScreens < 1)
                 FatalError("no screens found");
-        }
-        InitExtensions(argc, argv);
+            InitExtensions(argc, argv);
 
-        for (i = 0; i < screenInfo.numGPUScreens; i++) {
-            ScreenPtr pScreen = screenInfo.gpuscreens[i];
-            if (!CreateScratchPixmapsForScreen(pScreen))
-                FatalError("failed to create scratch pixmaps");
-            if (pScreen->CreateScreenResources &&
-                !(*pScreen->CreateScreenResources) (pScreen))
-                FatalError("failed to create screen resources");
-        }
+            for (i = 0; i < screenInfo.numGPUScreens; i++) {
+                ScreenPtr pScreen = screenInfo.gpuscreens[i];
+                if (!CreateScratchPixmapsForScreen(pScreen))
+                    FatalError("failed to create scratch pixmaps");
+                if (pScreen->CreateScreenResources &&
+                    !(*pScreen->CreateScreenResources) (pScreen))
+                    FatalError("failed to create screen resources");
+            }
 
-        for (i = 0; i < screenInfo.numScreens; i++) {
-            ScreenPtr pScreen = screenInfo.screens[i];
+            for (i = 0; i < screenInfo.numScreens; i++) {
+                ScreenPtr pScreen = screenInfo.screens[i];
 
-            if (!CreateScratchPixmapsForScreen(pScreen))
-                FatalError("failed to create scratch pixmaps");
-            if (pScreen->CreateScreenResources &&
-                !(*pScreen->CreateScreenResources) (pScreen))
-                FatalError("failed to create screen resources");
-            if (!CreateGCperDepth(i))
-                FatalError("failed to create scratch GCs");
-            if (!CreateDefaultStipple(i))
-                FatalError("failed to create default stipple");
-            if (!CreateRootWindow(pScreen))
-                FatalError("failed to create root window");
-        }
+                if (!CreateScratchPixmapsForScreen(pScreen))
+                    FatalError("failed to create scratch pixmaps");
+                if (pScreen->CreateScreenResources &&
+                    !(*pScreen->CreateScreenResources) (pScreen))
+                    FatalError("failed to create screen resources");
+                if (!CreateGCperDepth(i))
+                    FatalError("failed to create scratch GCs");
+                if (!CreateDefaultStipple(i))
+                    FatalError("failed to create default stipple");
+                if (!CreateRootWindow(pScreen))
+                    FatalError("failed to create root window");
+            }
 
-        InitFonts();
-        if (SetDefaultFontPath(defaultFontPath) != Success) {
-            ErrorF("[dix] failed to set default font path '%s'",
-                   defaultFontPath);
-        }
-        if (!SetDefaultFont(defaultTextFont)) {
-            FatalError("could not open default font '%s'", defaultTextFont);
-        }
+            InitFonts();
+            if (SetDefaultFontPath(defaultFontPath) != Success) {
+                ErrorF("[dix] failed to set default font path '%s'",
+                       defaultFontPath);
+            }
+            if (!SetDefaultFont(defaultTextFont)) {
+                FatalError("could not open default font '%s'", defaultTextFont);
+            }
 
-        if (!(rootCursor = CreateRootCursor(NULL, 0))) {
-            FatalError("could not open default cursor font '%s'",
-                       defaultCursorFont);
-        }
+            if (!(rootCursor = CreateRootCursor(NULL, 0))) {
+                FatalError("could not open default cursor font '%s'",
+                           defaultCursorFont);
+            }
 
 #ifdef DPMSExtension
-        /* check all screens, looking for DPMS Capabilities */
-        DPMSCapableFlag = DPMSSupported();
-        if (!DPMSCapableFlag)
-            DPMSEnabled = FALSE;
+            /* check all screens, looking for DPMS Capabilities */
+            DPMSCapableFlag = DPMSSupported();
+            if (!DPMSCapableFlag)
+                DPMSEnabled = FALSE;
 #endif
 
 #ifdef PANORAMIX
-        /*
-         * Consolidate window and colourmap information for each screen
-         */
-        if (!noPanoramiXExtension)
-            PanoramiXConsolidate();
+            /*
+             * Consolidate window and colourmap information for each screen
+             */
+            if (!noPanoramiXExtension)
+                PanoramiXConsolidate();
 #endif
 
-        for (i = 0; i < screenInfo.numScreens; i++)
-            InitRootWindow(screenInfo.screens[i]->root);
+            for (i = 0; i < screenInfo.numScreens; i++)
+                InitRootWindow(screenInfo.screens[i]->root);
 
-        InitCoreDevices();
-        InitInput(argc, argv);
-        InitAndStartDevices();
-        ReserveClientIds(serverClient);
+            InitCoreDevices();
+            InitInput(argc, argv);
+            InitAndStartDevices();
+            ReserveClientIds(serverClient);
 
-        dixSaveScreens(serverClient, SCREEN_SAVER_FORCER, ScreenSaverReset);
+            dixSaveScreens(serverClient, SCREEN_SAVER_FORCER, ScreenSaverReset);
 
         dixCloseRegistry();
 
 #ifdef PANORAMIX
-        if (!noPanoramiXExtension) {
-            if (!PanoramiXCreateConnectionBlock()) {
-                FatalError("could not create connection block info");
+            if (!noPanoramiXExtension) {
+                if (!PanoramiXCreateConnectionBlock()) {
+                    FatalError("could not create connection block info");
+                }
             }
-        }
-        else
+            else
 #endif
-        {
-            if (!CreateConnectionBlock()) {
-                FatalError("could not create connection block info");
+            {
+                if (!CreateConnectionBlock()) {
+                    FatalError("could not create connection block info");
+                }
             }
-        }
 
 #ifdef XQUARTZ
-        /* Let the other threads know the server is done with its init */
-        pthread_mutex_lock(&serverRunningMutex);
-        serverRunning = TRUE;
-        pthread_cond_broadcast(&serverRunningCond);
-        pthread_mutex_unlock(&serverRunningMutex);
+            /* Let the other threads know the server is done with its init */
+            pthread_mutex_lock(&serverRunningMutex);
+            serverRunning = TRUE;
+            pthread_cond_broadcast(&serverRunningCond);
+            pthread_mutex_unlock(&serverRunningMutex);
 #endif
+        }
 
         switch (dispatchMode) {
             case DM_ACTIVATING:
@@ -322,54 +322,56 @@ dix_main(int argc, char *argv[], char *envp[])
         UndisplayDevices();
         DisableAllDevices();
 
-        /* Now free up whatever must be freed */
-        if (screenIsSaved == SCREEN_SAVER_ON)
-            dixSaveScreens(serverClient, SCREEN_SAVER_OFF, ScreenSaverReset);
-        FreeScreenSaverTimer();
-        CloseDownExtensions();
+        if (dispatchMode == DM_ACTIVATING || dispatchMode == DM_ACTIVE) {
+            /* Now free up whatever must be freed */
+            if (screenIsSaved == SCREEN_SAVER_ON)
+                dixSaveScreens(serverClient, SCREEN_SAVER_OFF, ScreenSaverReset);
+            FreeScreenSaverTimer();
+            CloseDownExtensions();
 
 #ifdef PANORAMIX
-        {
-            Bool remember_it = noPanoramiXExtension;
+            {
+                Bool remember_it = noPanoramiXExtension;
 
-            noPanoramiXExtension = TRUE;
-            FreeAllResources();
-            noPanoramiXExtension = remember_it;
-        }
+                noPanoramiXExtension = TRUE;
+                FreeAllResources();
+                noPanoramiXExtension = remember_it;
+            }
 #else
-        FreeAllResources();
+            FreeAllResources();
 #endif
 
-        CloseInput();
+            CloseInput();
 
-        for (i = 0; i < screenInfo.numScreens; i++)
-            screenInfo.screens[i]->root = NullWindow;
+            for (i = 0; i < screenInfo.numScreens; i++)
+                screenInfo.screens[i]->root = NullWindow;
 
-        CloseDownDevices();
+            CloseDownDevices();
 
-        CloseDownEvents();
+            CloseDownEvents();
 
-        for (i = screenInfo.numGPUScreens - 1; i >= 0; i--) {
-            ScreenPtr pScreen = screenInfo.gpuscreens[i];
-            FreeScratchPixmapsForScreen(pScreen);
-            (*pScreen->CloseScreen) (pScreen);
-            dixFreePrivates(pScreen->devPrivates, PRIVATE_SCREEN);
-            free(pScreen);
-            screenInfo.numGPUScreens = i;
+            for (i = screenInfo.numGPUScreens - 1; i >= 0; i--) {
+                ScreenPtr pScreen = screenInfo.gpuscreens[i];
+                FreeScratchPixmapsForScreen(pScreen);
+                (*pScreen->CloseScreen) (pScreen);
+                dixFreePrivates(pScreen->devPrivates, PRIVATE_SCREEN);
+                free(pScreen);
+                screenInfo.numGPUScreens = i;
+            }
+
+            for (i = screenInfo.numScreens - 1; i >= 0; i--) {
+                FreeScratchPixmapsForScreen(screenInfo.screens[i]);
+                FreeGCperDepth(i);
+                FreeDefaultStipple(i);
+                dixFreeScreenSpecificPrivates(screenInfo.screens[i]);
+                (*screenInfo.screens[i]->CloseScreen) (screenInfo.screens[i]);
+                dixFreePrivates(screenInfo.screens[i]->devPrivates, PRIVATE_SCREEN);
+                free(screenInfo.screens[i]);
+                screenInfo.numScreens = i;
+            }
+
+            ReleaseClientIds(serverClient);
         }
-
-        for (i = screenInfo.numScreens - 1; i >= 0; i--) {
-            FreeScratchPixmapsForScreen(screenInfo.screens[i]);
-            FreeGCperDepth(i);
-            FreeDefaultStipple(i);
-            dixFreeScreenSpecificPrivates(screenInfo.screens[i]);
-            (*screenInfo.screens[i]->CloseScreen) (screenInfo.screens[i]);
-            dixFreePrivates(screenInfo.screens[i]->devPrivates, PRIVATE_SCREEN);
-            free(screenInfo.screens[i]);
-            screenInfo.numScreens = i;
-        }
-
-        ReleaseClientIds(serverClient);
         dixFreePrivates(serverClient->devPrivates, PRIVATE_CLIENT);
         serverClient->devPrivates = NULL;
 
