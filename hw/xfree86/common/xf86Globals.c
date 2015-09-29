@@ -140,7 +140,7 @@ xf86InfoRec xf86Info = {
 
 const char *xf86ConfigFile = NULL;
 const char *xf86ConfigDir = NULL;
-const char *xf86ModulePath = DEFAULT_MODULE_PATH;
+const char *xf86ModulePath = DEFAULT_MODULE_PATH "/updates," DEFAULT_MODULE_PATH;
 MessageType xf86ModPathFrom = X_DEFAULT;
 const char *xf86LogFile = DEFAULT_LOGDIR "/" DEFAULT_LOGPREFIX;
 MessageType xf86LogFileFrom = X_DEFAULT;
