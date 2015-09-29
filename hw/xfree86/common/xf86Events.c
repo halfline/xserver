@@ -183,13 +183,25 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
     DebugF("ProcessActionEvent(%d,%x)\n", (int) action, arg);
     switch (action) {
     case ACTION_TERMINATE:
-        if (!xf86Info.dontZap) {
-            xf86Msg(X_INFO, "Server zapped. Shutting down.\n");
+        if (xf86Info.dontZap)
+            break;
+
+	if (xf86Info.ZapWarning) {
+		static struct timeval LastZap = { 0, 0};
+		struct timeval NewZap;
+
+		gettimeofday(&NewZap, NULL);
+
+		if ((NewZap.tv_sec - LastZap.tv_sec) >= 2) {
+			xf86OSRingBell(30, 1000, 50);
+			LastZap = NewZap;
+			break;
+		}
+	}
 #ifdef XFreeXDGA
-            DGAShutdown();
+        DGAShutdown();
 #endif
-            GiveUp(0);
-        }
+        GiveUp(0);
         break;
     case ACTION_NEXT_MODE:
         if (!xf86Info.dontZoom)

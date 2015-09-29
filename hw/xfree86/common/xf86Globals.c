@@ -105,6 +105,7 @@ xf86InfoRec xf86Info = {
     .autoVTSwitch = TRUE,
     .ShareVTs = FALSE,
     .dontZap = FALSE,
+    .ZapWarning = TRUE,
     .dontZoom = FALSE,
     .notrapSignals = FALSE,
     .caughtSignal = FALSE,

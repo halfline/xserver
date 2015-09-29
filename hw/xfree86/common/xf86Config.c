@@ -673,6 +673,7 @@ typedef enum {
     FLAG_NOTRAPSIGNALS,
     FLAG_DONTVTSWITCH,
     FLAG_DONTZAP,
+    FLAG_ZAPWARNING,
     FLAG_DONTZOOM,
     FLAG_DISABLEVIDMODE,
     FLAG_ALLOWNONLOCAL,
@@ -710,6 +711,8 @@ static OptionInfoRec FlagOptions[] = {
      {0}, FALSE},
     {FLAG_DONTZAP, "DontZap", OPTV_BOOLEAN,
      {0}, FALSE},
+    { FLAG_ZAPWARNING,           "ZapWarning",                   OPTV_BOOLEAN,
+     {0}, FALSE },
     {FLAG_DONTZOOM, "DontZoom", OPTV_BOOLEAN,
      {0}, FALSE},
     {FLAG_DISABLEVIDMODE, "DisableVidModeExtension", OPTV_BOOLEAN,
@@ -792,6 +795,7 @@ configServerFlags(XF86ConfFlagsPtr flagsconf, XF86OptionPtr layoutopts)
     xf86GetOptValBool(FlagOptions, FLAG_NOTRAPSIGNALS, &xf86Info.notrapSignals);
     xf86GetOptValBool(FlagOptions, FLAG_DONTVTSWITCH, &xf86Info.dontVTSwitch);
     xf86GetOptValBool(FlagOptions, FLAG_DONTZAP, &xf86Info.dontZap);
+    xf86GetOptValBool(FlagOptions, FLAG_ZAPWARNING, &xf86Info.ZapWarning);
     xf86GetOptValBool(FlagOptions, FLAG_DONTZOOM, &xf86Info.dontZoom);
 
     xf86GetOptValBool(FlagOptions, FLAG_IGNORE_ABI, &xf86Info.ignoreABI);

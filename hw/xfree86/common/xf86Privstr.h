@@ -62,6 +62,7 @@ typedef struct {
     Bool autoVTSwitch;
     Bool ShareVTs;
     Bool dontZap;
+    Bool ZapWarning;
     Bool dontZoom;
     Bool notrapSignals;         /* don't exit cleanly - die at fault */
     Bool caughtSignal;
