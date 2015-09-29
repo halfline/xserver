@@ -960,12 +960,22 @@ xf86SetDpi(ScrnInfoPtr pScrn, int x, int y)
     else if (pScrn->widthmm > 0 || pScrn->heightmm > 0) {
         from = X_CONFIG;
         if (pScrn->widthmm > 0) {
-            pScrn->xDpi =
-                (int) ((double) pScrn->virtualX * MMPERINCH / pScrn->widthmm);
+	    if (pScrn->modes && pScrn->modes->HDisplay > 0) {
+		pScrn->xDpi =
+		    (int)((double) pScrn->modes->HDisplay * MMPERINCH / pScrn->widthmm);
+	    } else {
+	        pScrn->xDpi =
+                    (int)((double)pScrn->virtualX * MMPERINCH / pScrn->widthmm);
+	    }
         }
         if (pScrn->heightmm > 0) {
-            pScrn->yDpi =
-                (int) ((double) pScrn->virtualY * MMPERINCH / pScrn->heightmm);
+            if (pScrn->modes && pScrn->modes->VDisplay > 0) {
+	        pScrn->yDpi =
+		    (int)((double)pScrn->modes->VDisplay * MMPERINCH / pScrn->heightmm);
+	    } else {
+	        pScrn->yDpi =
+                (int)((double)pScrn->virtualY * MMPERINCH / pScrn->heightmm);
+	    }
         }
         if (pScrn->xDpi > 0 && pScrn->yDpi <= 0)
             pScrn->yDpi = pScrn->xDpi;
@@ -1004,12 +1014,22 @@ xf86SetDpi(ScrnInfoPtr pScrn, int x, int y)
         pScrn->widthmm = ddcWidthmm;
         pScrn->heightmm = ddcHeightmm;
         if (pScrn->widthmm > 0) {
-            pScrn->xDpi =
-                (int) ((double) pScrn->virtualX * MMPERINCH / pScrn->widthmm);
+		if (pScrn->modes && pScrn->modes->HDisplay > 0) {
+			pScrn->xDpi =
+				(int)((double) pScrn->modes->HDisplay * MMPERINCH / pScrn->widthmm);
+		} else {
+			pScrn->xDpi =
+				(int)((double)pScrn->virtualX * MMPERINCH / pScrn->widthmm);
+		}
         }
         if (pScrn->heightmm > 0) {
-            pScrn->yDpi =
-                (int) ((double) pScrn->virtualY * MMPERINCH / pScrn->heightmm);
+		if (pScrn->modes && pScrn->modes->VDisplay > 0) {
+			pScrn->yDpi =
+				(int)((double)pScrn->modes->VDisplay * MMPERINCH / pScrn->heightmm);
+		} else {
+			pScrn->yDpi =
+				(int)((double)pScrn->virtualY * MMPERINCH / pScrn->heightmm);
+		}
         }
         if (pScrn->xDpi > 0 && pScrn->yDpi <= 0)
             pScrn->yDpi = pScrn->xDpi;
