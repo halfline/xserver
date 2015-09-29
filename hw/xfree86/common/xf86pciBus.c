@@ -1105,7 +1105,8 @@ xf86VideoPtrToDriverList(struct pci_device *dev,
         driverList[0] = "ast";
         break;
     case 0x1002:
-        driverList[0] = "ati";
+	driverList[0] = "fglrx";
+        driverList[1] = "ati";
         break;
     case 0x102c:
         driverList[0] = "chips";
@@ -1185,6 +1186,13 @@ xf86VideoPtrToDriverList(struct pci_device *dev,
         driverList[0] = "neomagic";
         break;
     case 0x10de:
+	driverList[0] = "nvidia";
+	driverList[1] = "nouveau";
+	/* GeForce 6150SE support broken (bnc #465190/544674) */
+	if (dev->device_id != 0x03D0) {
+		driverList[2] = "nv";
+	}
+	break;
     case 0x12d2:
     {
         int idx = 0;
@@ -1196,7 +1204,8 @@ xf86VideoPtrToDriverList(struct pci_device *dev,
         break;
     }
     case 0x1106:
-        driverList[0] = "openchrome";
+        driverList[0] = "via";
+        driverList[1] = "openchrome";
         break;
     case 0x1b36:
         driverList[0] = "qxl";
