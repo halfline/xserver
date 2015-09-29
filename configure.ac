@@ -2627,5 +2627,6 @@ test/xi1/Makefile
 test/xi2/Makefile
 xserver.ent
 xorg-server.pc
+xorg-x11-server.macros
 ])
 AC_OUTPUT
