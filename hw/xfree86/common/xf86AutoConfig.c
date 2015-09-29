@@ -76,6 +76,13 @@
 	"\tDevice\t" BUILTIN_DEVICE_NAME "\n" \
 	"EndSection\n\n"
 
+#define BUILTIN_SCREEN_SECTION_FOR_FGLRX \
+	"Section \"Screen\"\n" \
+	"\tIdentifier\t" BUILTIN_SCREEN_NAME "\n" \
+	"\tDevice\t" BUILTIN_DEVICE_NAME "\n" \
+	"\tDefaultDepth\t24\n" \
+	"EndSection\n\n"
+
 #define BUILTIN_LAYOUT_SECTION_PRE \
 	"Section \"ServerLayout\"\n" \
 	"\tIdentifier\t\"Builtin Default Layout\"\n"
@@ -154,7 +161,10 @@ xf86AutoConfig(void)
     for (p = deviceList; *p; p++) {
         snprintf(buf, sizeof(buf), BUILTIN_DEVICE_SECTION, *p, 0, *p);
         AppendToConfig(buf);
-        snprintf(buf, sizeof(buf), BUILTIN_SCREEN_SECTION, *p, 0, *p, 0);
+	if( strcmp(*p, "fglrx") == 0 )
+		snprintf(buf, sizeof(buf), BUILTIN_SCREEN_SECTION_FOR_FGLRX, *p, 0, *p, 0);
+	else
+		snprintf(buf, sizeof(buf), BUILTIN_SCREEN_SECTION, *p, 0, *p, 0);
         AppendToConfig(buf);
     }
 
